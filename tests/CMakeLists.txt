@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 project(h5demos CXX C CUDA)
 set(CMAKE_C_FLAGS $ENV{CFLAGS})
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #find_package(MPI REQUIRED)
 find_package(ROOT REQUIRED COMPONENTS)
@@ -41,16 +41,13 @@ set (libraries ${libraries}
               ROOT::Hist)
 
 
+add_executable(getdunehdf5 
+               GenerateDataInHDF5.cc    
+               getdunehdf5.cc)
+target_link_libraries(getdunehdf5 ${libraries})
 
 
-add_executable(test_gpu_hdf5 test_gpu_hdf5.cu)
-#target_compile_options(test_gpu_hdf5 PRIVATE ${HDF5_CXX_COMPILER_EXECUTABLE})
-target_link_libraries(test_gpu_hdf5 ${libraries})
-
-add_executable(test_cudavector test_cudavector.cu)
-target_link_libraries(test_cudavector ${libraries})
-
-add_executable(test_4vec test_4vec.cu)
-target_link_libraries(test_4vec ${libraries})
+#add_executable(test_4vec test_4vec.cu)
+#target_link_libraries(test_4vec ${libraries})
 
 
