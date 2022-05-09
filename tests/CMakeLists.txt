@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(ROOT REQUIRED COMPONENTS)
 find_package(HDF5 REQUIRED)
 enable_language(CUDA)
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 message("STATUS OF HDF5_FOUND IS ${HDF5_FOUND}")
 #set(HDF5_PREFER_PARALLEL TRUE)
@@ -47,7 +50,7 @@ add_executable(getdunehdf5
 target_link_libraries(getdunehdf5 ${libraries})
 
 
-#add_executable(test_4vec test_4vec.cu)
-#target_link_libraries(test_4vec ${libraries})
+add_executable(test_4vec test_4vec.cu)
+target_link_libraries(test_4vec ${libraries})
 
 
