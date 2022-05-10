@@ -49,6 +49,10 @@ add_executable(getdunehdf5
                getdunehdf5.cc)
 target_link_libraries(getdunehdf5 ${libraries})
 
+add_executable(readdunehdf5 
+               ReadRawDataHDF5.cc    
+               readdunehdf5.cc)
+target_link_libraries(readdunehdf5 ${libraries})
 
 add_executable(test_4vec test_4vec.cu)
 target_link_libraries(test_4vec ${libraries})

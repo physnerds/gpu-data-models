@@ -14,38 +14,53 @@ GenerateDataInHDF5::GenerateDataInHDF5(std::string const& fname, int &chunksize)
     
     
 }
+
 //destructor
 GenerateDataInHDF5::~GenerateDataInHDF5(){
     
 }
-
+hdf5::File GenerateDataInHDF5::GetFileObject(){
+    
+    return file_;
+}
 void GenerateDataInHDF5::CreateHeader(hid_t g,int channel_id,DuneRawDataHeader header_info){
     constexpr hsize_t ndims = 1;
     constexpr hsize_t dims[ndims]={0};
     const hsize_t chunk_dims[ndims] = {static_cast<hsize_t>(chunksize_)};
     const hsize_t max_dims[ndims] = {header_info.Nadc_};
     
+    const hsize_t hdims[ndims] = {1};
+    auto dspace_h = hdf5::Dataspace::create_simple(ndims,hdims,NULL);
     auto space = hdf5::Dataspace::create_simple(ndims,dims,max_dims);
     auto prop = hdf5::Property::create();
     prop.set_chunk(ndims,chunk_dims);
-    //hdf5::Group g = hdf5::Group::create(file_,"APA");
     
-    auto cid = hdf5::CompoundData::create(sizeof(DuneRawDataHeader));
     
-    cid.insert_datatype<uint32_t>("Chan",HOFFSET(DuneRawDataHeader,chan_));
-    cid.insert_datatype<float>("Pedestal",HOFFSET(DuneRawDataHeader,pedestal_));
-    cid.insert_datatype<float>("Sigma",HOFFSET(DuneRawDataHeader,sigma_));
-    cid.insert_datatype<uint32_t>("nADC",HOFFSET(DuneRawDataHeader,Nadc_));
+    auto cid = hdf5::CompoundData::create(sizeof(DuneRawDataHeader)); 
+    /*
+    cid.insert_datatype<int>("Chan",8);
+    cid.insert_datatype<double>("Pedestal",8+8);
+    cid.insert_datatype<double>("Sigma",8+8+8);
+    cid.insert_datatype<int>("nADC",8+8+8+8);
+    cid.insert_datatype<int>("Compression",8+8+8+8+8);
+    */
+    
+    cid.insert_datatype<int>("Chan",HOFFSET(DuneRawDataHeader,chan_));
+    cid.insert_datatype<double>("Pedestal",HOFFSET(DuneRawDataHeader,pedestal_));
+    cid.insert_datatype<double>("Sigma",HOFFSET(DuneRawDataHeader,sigma_));
+    cid.insert_datatype<int>("nADC",HOFFSET(DuneRawDataHeader,Nadc_));
     cid.insert_datatype<int>("Compression",HOFFSET(DuneRawDataHeader,compression_));
-    
+
+   // hsize_t hdims[ndims] = {1};
+   // auto dspace_h = H5Screate_simple(1,hdims,NULL);
     //now the data
     std::string header_name = "ChannelHeader_"+std::to_string(channel_id);
     std::string d_name = "ChannelID_"+std::to_string(channel_id);
     auto dset_h = hdf5::Dataset::create_cd(g,header_name.c_str(),
-                                                   space,cid, H5P_DEFAULT);
+                                                   cid,dspace_h, H5P_DEFAULT);
+
     //write the header during data-set creation and get done with it.
-    //dset_h.write_cd(space, cid, hid_t filespace,header_info);
-    
+    dset_h.write_cd(dspace_h, cid,header_info);
     hdf5::Dataset dset_d = hdf5::Dataset::create<int>(g,d_name.c_str(),space,prop);
     
     
@@ -53,7 +68,8 @@ void GenerateDataInHDF5::CreateHeader(hid_t g,int channel_id,DuneRawDataHeader h
     //create 2 data-sets..one for header and one for actual APA data.
     
 }
-void GenerateDataInHDF5::WriteData(hid_t gid,std::string dset_name, std::vector<int>const &data){
+void GenerateDataInHDF5::WriteData(hid_t gid,int channel_id , std::vector<int>const &data){
+    std::string dset_name = "ChannelID_"+std::to_string(channel_id);
     auto dset_id = hdf5::Dataset::open(gid,dset_name.c_str());
     hsize_t ndims = 1;
     auto dspace_h = hdf5::Dataspace::get_space(dset_id);

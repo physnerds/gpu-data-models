@@ -28,6 +28,7 @@ template<typename T> constexpr hid_t H5memtype_for = -1;
 template<> inline hid_t H5memtype_for<int> = H5T_NATIVE_INT;
 //template<> inline hid_t H5memtype_for<unsigned int> = H5T_NATIVE_UINT;
 template<> inline hid_t H5memtype_for<char> = H5T_NATIVE_CHAR;
+template<> inline hid_t H5memtype_for<double> = H5T_NATIVE_FLOAT;
 template<> inline hid_t H5memtype_for<size_t> = H5T_NATIVE_ULLONG;
 template<> inline hid_t H5memtype_for<unsigned long long> = H5T_NATIVE_ULLONG;
 template<> inline hid_t H5memtype_for<std::string> = string_type();
@@ -45,7 +46,10 @@ class File {
       return File(H5Fopen(name, H5F_ACC_RDONLY, H5P_DEFAULT));
     }
     ~File() {
-      H5Fclose(file_);
+     // H5Fclose(file_);
+    }
+    void Close(){
+     H5Fclose(file_);   
     }
     operator hid_t() const {return file_;}
   private:
@@ -66,7 +70,10 @@ class Group {
       return Group(H5Gopen2(id, name, H5P_DEFAULT));
     }
     ~Group() {
-      H5Gclose(group_);
+     // H5Gclose(group_);
+    }
+    void Close(){
+     H5Gclose(group_);   
     }
     operator hid_t() const {return group_;}
   private:
@@ -108,9 +115,14 @@ class Dataset {
     }
     //templated write for compound data as well...
     template<typename T>
-    auto write_cd(hid_t dspace, hid_t filespace, T &data){
-     return H5Dwrite(dataset_,H5S_ALL, dspace, filespace, H5P_DEFAULT, data);   
+    auto write_cd(hid_t dspace, hid_t t_id, T data){
+     return H5Dwrite(dataset_,t_id, dspace, H5S_ALL, H5P_DEFAULT, &data);   
     }
+    template<typename T>
+    auto read_cd(hid_t t_id, T c_data){
+     return H5Dread(dataset_,t_id,H5S_ALL,H5S_ALL,H5P_DEFAULT,c_data);   
+    }
+    
     auto set_extent(hsize_t const *dims) {
      auto err = H5Dset_extent(dataset_, dims);
      if (err < 0) {
@@ -218,13 +230,14 @@ class Property {
     
 class CompoundData{
     public:
-      static CompoundData create(size_t struct_size){
+      static CompoundData create(hsize_t struct_size){
           return CompoundData(H5Tcreate(H5T_COMPOUND,struct_size));
           
       }
       ~CompoundData() {
          H5Tclose(cid_);   
       }
+      hid_t ReturnID(){return cid_;}
       template<typename T> 
       void insert_datatype(std::string d_name, size_t offset){
          auto err = H5Tinsert(cid_, d_name.c_str(),offset,H5memtype_for<T>);
