@@ -35,7 +35,6 @@ class GenerateDataInHDF5{
       int chunksize_;
       
     
-    
 };
 
 #endif

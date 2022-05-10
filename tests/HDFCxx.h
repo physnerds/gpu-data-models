@@ -122,7 +122,10 @@ class Dataset {
     auto read_cd(hid_t t_id, T c_data){
      return H5Dread(dataset_,t_id,H5S_ALL,H5S_ALL,H5P_DEFAULT,c_data);   
     }
-    
+    template<typename T>
+    auto read(T const data,hid_t htype){
+     return H5Dread(dataset_,htype,H5S_ALL,H5S_ALL,H5P_DEFAULT,data);   
+    }
     auto set_extent(hsize_t const *dims) {
      auto err = H5Dset_extent(dataset_, dims);
      if (err < 0) {
