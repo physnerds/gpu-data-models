@@ -29,6 +29,7 @@ class ReadRawDataHDF5{
     std::vector<uint32_t> GetChannelData(hdf5::Group apa_id, int channel_id,int size); 
     herr_t apa_info(hid_t loc_id, const char *name, const H5L_info_t *linfo, void *opdata);
     
+    
   private:
     hdf5::File file_;
     std::vector<std::string>apa_names;
