@@ -12,9 +12,38 @@
     
 };
 
+template<typename T>
+class RandomClass{
+    public:
+    RandomClass();
+    
+    void SetSomeVar(T somevar){_somevar = somevar;}
+    
+    T GetSomeVar(){return _somevar;}
+    
+    private:
+        T _somevar;
+    
+};
+template<class FUNCTOR, typename... ARGS>
+class KernelTask{
+   static_assert( sizeof...( ARGS ) > 0,
+   "At least one functor argument must be provided" );
+   
+   public:
+     KernelTask(FUNCTOR _class,ARGS... args);
 
-//we might need to come back on this later on...
-__device__ FourVector *fv;
+};
+
+template<typename T>
+struct arraystruct{
+    std::vector<T>_px;
+    std::vector<T>_py;
+    std::vector<T>_pz;
+    std::vector<T>_E;
+};
+
+
 
 std::vector<FourVector>GenerateRandomTrack(int _size,double mass){
     std::vector<FourVector>track_container;
@@ -113,6 +142,27 @@ __global__ void testVector2(int* index_ptr,int _size){
         index_ptr[id] = id;
         printf("Device count %d %d \n",id,index_ptr[id]);
         }
+}
+
+int RunArrayTypes(){
+    auto trajectory = GenerateRandomTrack(10000,134.34);
+    double _px[10000];
+    double _py[10000];
+    double _pz[10000];
+    double _E[10000];
+    for(int i = 0;i<10000;i++){
+        auto temp_fvec = trajectory[i];
+        _px[i] = trajectory[i]._px;
+        _py[i] = trajectory[i]._py;
+        _pz[i] = trajectory[i]._pz;
+        _E[i] = trajectory[i]._E;
+    }
+    arraystruct<double>arr;
+    
+   // arraystruct::array_px<double> i = arr.array_px;
+    //auto px_ = arraystruct::array_px<double>::setArray(_px);
+    //arr.array_px<double>::setArray(_px);
+    return 1;
 }
 
 int RunCudaVectorTypes(){
