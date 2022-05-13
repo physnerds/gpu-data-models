@@ -17,9 +17,11 @@ hdf5::Group OffloadIntoHost::GetAPAHandle(std::string apa_name){
     
 }
 
-CudaVector<ReadRawDataHDF5::DuneRawDataHeader>  OffloadIntoHost::OffloadHeaderIntoCudaArray(hdf5::Group apa_id, int ch_id){
-    ReadRawDataHDF5::DuneRawDataHeader c_container[1];
-    file_.GetChannelHeader(apa_id, ch_id,c_container); 
+void OffloadIntoHost::ReturnDataHeader(hdf5::Group apa_id, int ch_id,ReadRawDataHDF5::DuneRawDataHeader c_container[1]){
+    file_.GetChannelHeader(apa_id, ch_id,c_container);
+}
+
+CudaVector<ReadRawDataHDF5::DuneRawDataHeader>  OffloadIntoHost::OffloadHeaderIntoCudaArray(ReadRawDataHDF5::DuneRawDataHeader c_container[1]){
     std::vector<ReadRawDataHDF5::DuneRawDataHeader>vec = {c_container[0]};
     CudaVector<ReadRawDataHDF5::DuneRawDataHeader>wrapper(vec);
     return wrapper;

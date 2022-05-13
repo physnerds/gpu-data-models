@@ -19,8 +19,9 @@ class OffloadIntoHost{
     ~OffloadIntoHost();
     
     hdf5::Group GetAPAHandle(std::string apa_name);
-    CudaVector<ReadRawDataHDF5::DuneRawDataHeader>OffloadHeaderIntoCudaArray(hdf5::Group apa_id, int ch_id);
+    CudaVector<ReadRawDataHDF5::DuneRawDataHeader>OffloadHeaderIntoCudaArray( ReadRawDataHDF5::DuneRawDataHeader c_container[1]);
     
+    void ReturnDataHeader(hdf5::Group apa_id, int ch_id ,ReadRawDataHDF5::DuneRawDataHeader c_container[1]);
     template<typename T>
     CudaVector<T> OffloadDataIntoCudaArray(std::vector<T> data);
     

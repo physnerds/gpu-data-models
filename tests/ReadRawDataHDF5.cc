@@ -22,9 +22,7 @@ void ReadRawDataHDF5::GetChannelHeader(hdf5::Group apa_id,int ch_id, DuneRawData
     cid.insert_datatype<int>("Compression",HOFFSET(DuneRawDataHeader,compression_));
     
     auto name = "ChannelHeader_"+std::to_string(ch_id);
-   // auto apa_id = hdf5::Group::open(file_,apa_name.c_str());
-    
-    std::cout<<"Opening the data-set "<<apa_id<<std::endl;
+
     auto ch_header = hdf5::Dataset::open(apa_id,name.c_str());
     ch_header.read_cd(cid, c_header);
     

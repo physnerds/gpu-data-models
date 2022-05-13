@@ -3,7 +3,6 @@
 
 #include "TaskPtr.h"
 #include "KernelStatus.h"
-#include "helper_functions/helper_cuda.h"
 
 #ifndef __CUDACC__
 typedef void* cudaStream_t;
@@ -57,11 +56,15 @@ class OffloadKernelTasks : public IKernelTask {
      virtual bool finished(bool code, KernelExecMode mode) override;
       
     private:
+      TaskPtr_t m_postExecTask;
       //Size of te arrays that we feed from kernel/functions
       std::size_t m_arraySizes;
       
       //arguments that come with the class object
       std::tuple<ARGS... >m_args;
+      
+      //need to make sure the task is finishing.
+      KernelStatus* m_status;
       
       bool m_ranOnDevice;
           
