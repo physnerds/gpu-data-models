@@ -15,6 +15,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 message("STATUS OF HDF5_FOUND IS ${HDF5_FOUND}")
 #set(HDF5_PREFER_PARALLEL TRUE)
 
+set(CUDA_INCLUDE_DIRS "/usr/common/software/sles15_cgpu/cuda/11.1.1/include/")
+
 set(MPI_INCLUDE_DIRS "/usr/common/software/mpich/3.3.1-debug/gcc/7.3.0/include")
 set(MPI_LIBRARIES "/usr/common/software/mpich/3.3.1-debug/gcc/7.3.0/lib/libmpi.so")
 
@@ -32,6 +34,7 @@ include_directories (SYSTEM
             ${MPI_INCLUDE_DIRS}
 		    ${HDF5_INCLUDE_DIRS}
             ${TBB_INCLUDE_DIRS}
+            ${CUDA_INCLUDE_DIRS}
 		    ${ROOT_INCLUDE_DIRS}
             )
 		    
@@ -67,7 +70,9 @@ target_link_libraries(test_4vec ${libraries})
 add_executable(test_offloader
                KernelStatus.cc
                TaskArena.cc
+               OffloadIntoHost.cc
                OffloadKernelTasks.cc
+               ReadRawDataHDF5.cc
                test_offloader.cu)
                
 target_link_libraries(test_offloader ${libraries})

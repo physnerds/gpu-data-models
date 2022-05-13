@@ -5,17 +5,11 @@
 #include <iostream>
 #include <cstring>
 
-OffloadIntoHost::OffloadIntoHost(std::string f_name):file_(hdf5::File::open(f_name.c_str())){
+OffloadIntoHost::OffloadIntoHost(std::string f_name):file_(ReadRawDataHDF5(f_name.c_str())){
     
 }
 
-OffloadIntoHost::OffloadIntoHost(){
-
-}
-
-OffloadIntoHost::~OffloadIntoHost(){
-
-}
+OffloadIntoHost::~OffloadIntoHost(){}
 
 hdf5::Group OffloadIntoHost::GetAPAHandle(std::string apa_name){
     hdf5::Group apa_id = file_.GetAPAHandle(apa_name);
@@ -23,14 +17,16 @@ hdf5::Group OffloadIntoHost::GetAPAHandle(std::string apa_name){
     
 }
 
-CudaVector  OffloadIntoHost::OffloadHeaderIntoCudaArray(ReadRawDataHDF5::DuneRawDataHeader header){
-    std::vector<ReadRawDataHDF5::DuneDataHeader>temp_vec = {header};
-    return CudaVector<ReadRawDataHDF5::DuneDataHeader>(temp_vec);
-    
+CudaVector<ReadRawDataHDF5::DuneRawDataHeader>  OffloadIntoHost::OffloadHeaderIntoCudaArray(hdf5::Group apa_id, int ch_id){
+    ReadRawDataHDF5::DuneRawDataHeader c_container[1];
+    file_.GetChannelHeader(apa_id, ch_id,c_container); 
+    std::vector<ReadRawDataHDF5::DuneRawDataHeader>vec = {c_container[0]};
+    CudaVector<ReadRawDataHDF5::DuneRawDataHeader>wrapper(vec);
+    return wrapper;
 }
 
 template<typename T>
-CudaVector OffloadIntoHost::OffloadDataIntoCudaArray(std::vector<T> data){
+CudaVector<T> OffloadIntoHost::OffloadDataIntoCudaArray(std::vector<T> data){
     
     return CudaVector<T>(data);
     

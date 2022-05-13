@@ -23,7 +23,7 @@ class ReadRawDataHDF5{
     ~ReadRawDataHDF5();
     void GetAPAInfo();
     hdf5::Group GetAPAHandle(std::string apa_number);
-    void GetChannelHeader(std::string apa_name, int ch_id, DuneRawDataHeader dat_container[1]);
+    void GetChannelHeader(hdf5::Group apa_id, int ch_id, DuneRawDataHeader dat_header[1]);
     size_t GetTotalChannelNumbers(hid_t apa_id);
     
     std::vector<uint32_t> GetChannelData(hdf5::Group apa_id, int channel_id,int size); 
