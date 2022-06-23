@@ -2,10 +2,12 @@
 #include "TaskArena.h"
 //#include "OffloadKernelTasks.h"
 #include "OffloadIntoHost.h"
-#include "ArrayKernelTask.cuh"
+//#include "ArrayKernelTask.cuh"
+#include "Memory.cuh"
 #include "ReadRawDataHDF5.h"
 #include "TCudaVector.h"
 #include "Info.h"
+#include "DeviceFunctions.h"
 #include<tuple>
 #include<type_traits>
 //Added for some testing purpose only....
@@ -14,51 +16,101 @@
 #include "tbb/task_arena.h"
 
 
-namespace Task{
-template< class FUNCTOR, typename... ARGS >
-class MyTask {
-  static_assert(sizeof... (ARGS)>0,
-                "At least one argument needed ");
-  public: 
-    MyTask(tbb::task_arena &arena,std::size_t arraySizes, ARGS... args );
-    
-    bool execute(/*cudaStream_t& stream*/);
-    
-    bool CopyDeviceToHost();
-    
-   private:
-    tbb::task_arena m_arena;
-    std::size_t m_size;
-    std::tuple<ARGS...>m_tuple;
-    std::tuple<ARGS... >m_objects;
-    
-    
-    
-};
-  
-template< class FUNCTOR, typename... ARGS>
-std::unique_ptr<MyTask<FUNCTOR,ARGS...>>make_Task(tbb::task_arena &arena,std::size_t arraySizes,ARGS... args){
-return std::make_unique<MyTask<FUNCTOR,ARGS...>>(arena,arraySizes,args...);  
-}
-//The constructor...  
-template<class FUNCTOR,typename... ARGS>  
-MyTask<FUNCTOR,ARGS...>::MyTask(tbb::task_arena &arena,std::size_t arrSize,ARGS... args):m_arena(std::move(arena)),m_size(arrSize),m_tuple(args ...){}
-    
 
+
+
+namespace Task2{
+
+//declare some 
 template<class FUNCTOR, typename... ARGS>
-bool MyTask<FUNCTOR,ARGS...>::execute(){
-   FUNCTOR fun(std::get<0>(m_tuple),std::get<1>(m_tuple));
-   m_arena.execute([&fun](){
+__global__ void deviceKernel(std::size_t arraySizes, ARGS... args){
+
+       const std::size_t i = blockIdx.x*blockDim.x+threadIdx.x;
+       if(i>=arraySizes ) return;
+       
+       FUNCTOR()(args...);
+     // FUNCTOR(args...)();
+       return;
+     
+
+}
+
+template<class FUNCTOR, class... ARGS>
+int deviceExecute(cudaStream_t stream, std::size_t arraySizes, ARGS... args){
+   int nThreadsPerBlock = 1024;
+   for(int i=0;i<Info::instance().nDevices();++i){
+      while(nThreadsPerBlock>Info::instance().maxThreadsPerBlock()[i]){
+          nThreadsPerBlock/=2;
+      }
+   }
+   
+  if(arraySizes<nThreadsPerBlock){
+     nThreadsPerBlock = arraySizes;
+  }
+   const int nBlocks = ((arraySizes + nThreadsPerBlock-1)/nThreadsPerBlock);
+   
+   deviceKernel<FUNCTOR><<<nBlocks, nThreadsPerBlock,0,stream>>>(arraySizes,args...);
+   
+   return 0;
+   
+}    
+    
+template<class FUNCTOR, typename... ARGS>    
+class MyTask{
+   static_assert(sizeof... (ARGS)>=0,
+       "At least one argument needed ");
+   
+   public:
+     MyTask(cudaStream_t &stream, tbb::task_arena &arena, std::size_t arraySizes, ARGS... args );
+     
+     bool execute(ARGS... args);
+     
+     bool CopyDeviceToHost();
+     
+     private:
+      tbb::task_arena m_arena;
+      std::size_t m_size;
+      std::tuple<ARGS...>m_tuple;
+      std::tuple<ARGS... >m_objects; 
+      cudaStream_t m_stream;
+};
+    
+template<class FUNCTOR, typename... ARGS>
+std::unique_ptr<MyTask<FUNCTOR,ARGS...>>make_Task(cudaStream_t &stream, tbb::task_arena &arena,
+                                                  size_t arraySizes,ARGS... args){
+ return std::make_unique<MyTask<FUNCTOR,ARGS...>>(stream,arena,arraySizes,args...);   
+}
+    
+template<class FUNCTOR, typename... ARGS>
+MyTask<FUNCTOR,ARGS...>::MyTask(cudaStream_t &stream, tbb::task_arena &arena, std::size_t arraySizes, ARGS... args):
+    m_stream(std::move(stream)),m_arena(std::move(arena)),m_size(arraySizes),m_tuple(args...){}
+                                                                 
+template<class FUNCTOR, typename... ARGS>
+bool MyTask<FUNCTOR,ARGS...>::execute(ARGS... args){
+
+ //  FUNCTOR fun(std::get<0>(m_tuple),std::get<1>(m_tuple));
+   //FUNCTOR fun(args...);
+   auto fun = FUNCTOR();
+   if(m_stream==nullptr){
+   m_arena.execute([&fun,args...](){
      tbb::task_group group;
      group.run([&](){
-        
-        fun.RunArray();
-     });
+      //  fun.RunArray();
+        fun(args...);
+    });
      group.wait();
    });
+
+   }
+   else{
+  deviceExecute<FUNCTOR>(m_stream,m_size,args...); 
+   
+   }
 }
-    
+
+
 }
+
 
 namespace Devices {
     
@@ -101,6 +153,8 @@ int deviceExecute(cudaStream_t stream, std::size_t arraySizes, ARGS... args){
    return 0;
    
 }
+
+
 
 template<bool IsArray,std::size_t Index, typename... ARGS>
 class MakeDeviceObjectImpl;
@@ -167,7 +221,9 @@ template<std::size_t Index, typename... ARGS>
         
         typedef typename ::device_array<T> type;
     };
- /*   
+    
+
+    /*   
     template<typename... ARGS >
     struct TaskDeviceVariables{
       typedef typename 
@@ -178,29 +234,18 @@ template<std::size_t Index, typename... ARGS>
     
 }
 
-class Functor1 {
-public:
+
+class Functor3 {
+public: 
    HOST_AND_DEVICE
    void operator()( std::size_t i, uint32_t* array1 ) {
 
-      array1[ i ] *= 120;
+      array1[ i ] *= 12;
+
    }
-}; // class Functor1
+}; // class Functor3
 
 
-class Functor2{
-public:
-    Functor2( std::size_t i, uint32_t* array1):m_size(i),m_array(std::move(array1)){
-        
-    }
-    void RunArray(){
-        m_array[m_size] *=12;
-    }
-private:
-    size_t m_size;
-    uint32_t* m_array;
-    
-};
 
 __global__ void testvector(uint32_t* in,uint32_t* out, int _size){
     for(int id = blockIdx.x*blockDim.x+threadIdx.x;
@@ -224,7 +269,8 @@ int main(){
     //now get the header info 
     ReadRawDataHDF5::DuneRawDataHeader c_header[1];
     handler.ReturnDataHeader( apa_id,ch_id, c_header);
-    CudaVector<ReadRawDataHDF5::DuneRawDataHeader> cu_header= handler.OffloadHeaderIntoCudaArray(c_header);
+    CudaVector<ReadRawDataHDF5::DuneRawDataHeader> cu_header=
+        handler.OffloadHeaderIntoCudaArray(c_header);
     
     auto dat_size = c_header[0].Nadc_;
     CudaVector<uint32_t> cu_data = handler.OffloadDataIntoCudaArray(apa_id, c_header[0].chan_, c_header[0].Nadc_);
@@ -237,48 +283,28 @@ int main(){
     ptr_trial = thrust::raw_pointer_cast(dev_vector.data());
 
     
-    uint32_t *ptr_out;
-    cudaError_t ret = cudaMallocManaged((void**)&ptr_out,dat_size*u_size);
+  //  uint32_t *ptr_out;
+    cudaError_t ret;
     
+    // ret = cudaMallocManaged((void**)&ptr_out,dat_size*u_size);
+    uint32_t*  ptr_out = Device::AllocateMemory<uint32_t>(dat_size);
      if (ret != cudaSuccess) {
     std::cout << cudaGetErrorString(ret) << std::endl;
     return 1;
      }
-    testvector<<<1,dat_size>>>(ptr_trial,ptr_out,dat_size);
-    
-    uint32_t *host_out = new uint32_t[dat_size];
-    cudaMemcpy(host_out,ptr_out,dat_size*u_size,cudaMemcpyDeviceToHost);
-    
-    for(int i = 0;i<dat_size;i++)std::cout<<host_out[i]<<" "<<cu_data[i]<<std::endl;
-    
-  /****************************************************************/
-    //From here I am testing the TBB implementation.
+     
+
     cudaStream_t stream = nullptr;
+    
     if(Info::instance().nDevices()>0){
        CUDA_EXP_CHECK(cudaStreamCreate(&stream));   
     }
     
-    
-    tbb::task_arena arena(1);
-    tbb::task_group tg;
-    
-     uint32_t* ptr_trial2;
-    ret = cudaMallocManaged((void**)&ptr_trial2,dat_size*u_size);
-    
-    if(ret!= cudaSuccess){
-    
-        std::cout<<cudaGetErrorString(ret)<<std::endl;
-        return 1;
-    }
-    ptr_trial2 = thrust::raw_pointer_cast(dev_vector.data());
-    auto task = Task::make_Task<Functor2>(arena,100,2,host_out);
-        
-    task->execute();
-    
-    uint32_t *host_out2 = new uint32_t[dat_size];
-    cudaMemcpy(host_out2,ptr_trial,dat_size*u_size,cudaMemcpyDeviceToHost);
-    
-    
+    testvector<<<1,dat_size>>>(ptr_trial,ptr_out,dat_size);
+   uint32_t *host_out =
+    Device::CopyArrayFromDevice(stream,ptr_out,dat_size);
+
+    for(int i = 0;i<dat_size;i++)std::cout<<host_out[i]<<" "<<cu_data[i]<<std::endl;    
     
     return 1;   
     
