@@ -12,6 +12,7 @@
 #include "tbb/global_control.h"
 #include "tbb/task_arena.h"
 #include "DeviceFunctions.h"
+
 /*
 the unique_ptr should have the ordering as such....
 1. size of arrays
@@ -42,6 +43,15 @@ class Test_Functor{
     }
 };
 
+class Add_Functor{
+ public:
+    HOST_AND_DEVICE
+    void operator()(uint32_t* arr1, uint32_t* arr2, uint32_t* arr_out, size_t arr_size){
+        
+        
+    }
+    
+};
 namespace Task{
     
 template<class FUNCTOR, typename... ARGS>
@@ -53,10 +63,8 @@ __global__ void deviceKernel(std::size_t arraySizes, ARGS... args){
        FUNCTOR()(args...);
      // FUNCTOR(args...)();
        return;
-     
 
 }
-
 
 template<class FUNCTOR,class... ARGS>
 int deviceExecute(cudaStream_t stream,std::size_t arraySizes,std::size_t array_numbers, ARGS... args){
@@ -78,6 +86,14 @@ while(nThreadsPerBlock>Info::instance().maxThreadsPerBlock()[i]){
    return 0;
   
 }
+
+/*
+template<typename Tuple,std::size_t... I>
+void test_execute(Tuple const& tuple, std::index_sequence<I...>){
+  execute(std::get<I>(tuple)...);
+
+}
+*/
 
 template<class FUNCTOR, typename... ARGS>    
 class MyTask{
@@ -113,16 +129,17 @@ std::unique_ptr<MyTask<FUNCTOR,ARGS...>>make_Task(cudaStream_t &stream, tbb::tas
 template<class FUNCTOR, typename... ARGS>
 MyTask<FUNCTOR,ARGS...>::MyTask(cudaStream_t &stream,tbb::task_arena &arena, std::size_t arraySizes, std::size_t arrano, ARGS... args):
     m_stream(std::move(stream)),m_arena(std::move(arena)),m_arrano(arrano),m_size(arraySizes),m_tuple(args...){}
-
+    
 template<class FUNCTOR, typename... ARGS>
 bool MyTask<FUNCTOR,ARGS...>::execute(ARGS... args){
-//   std::experimental::apply([&](auto &&... args){fun(args...);},m_tuple);
+
    if(m_stream==nullptr){
       auto fun = FUNCTOR();
       m_arena.execute([&fun,args...](){
       tbb::task_group group;
       group.run([&](){
-        fun(args...);
+
+      fun(args...);
    //   std::experimental::apply([](auto &&... args){fun(args...);},m_tuple);
         });
         group.wait();
@@ -157,16 +174,16 @@ int main(){
     CudaVector<uint32_t> cu_data = handler.OffloadDataIntoCudaArray(apa_id, c_header[0].chan_, c_header[0].Nadc_);
     
     auto dev_vector = cu_data.ReturnDeviceVector();
+    
+    auto host_vector = cu_data.ReturnHostVector();
     size_t u_size = sizeof(uint32_t);    
     
-    auto host_arr1 = dev_vector.data();
-    auto host_arr2 = dev_vector.data();
     cudaStream_t stream = nullptr;
-    /*
+    
     if(Info::instance().nDevices()>0){
        CUDA_EXP_CHECK(cudaStreamCreate(&stream));   
     }
-    */
+    
     tbb::task_arena arena(1);
     tbb::task_group tg;  
     
@@ -186,14 +203,17 @@ int main(){
     else arr_out = new uint32_t[u_size];
 
 
+    uint32_t *pt1 = Device::ReturnArray<uint32_t>(stream,cu_data);//t1;
+    uint32_t *pt2 = Device::ReturnArray<uint32_t>(stream,cu_data);//t2;
     auto task = Task::make_Task<Test_Functor>
-(stream,arena,dat_size,3,arr1,arr2,arr_out,5,true);
+(stream,arena,dat_size,3,pt1,pt2,arr_out,5,true);
     
-    task->execute(arr1,arr2,arr_out,5,true);
+    task->execute(pt1,pt2,arr_out,5,true);
         
-    uint32_t *host_out;
-    host_out = Device::CopyArrayFromDevice(stream,arr_out,dat_size);
+    //uint32_t *host_out;
+    uint32_t *host_out = Device::CopyArrayFromDevice(stream,pt2,dat_size);
     
-  //  std::cout<<host_out[1]<<" "<<std::endl;
+   std::cout<<host_out[5]<<" "<<host_vector[5]<<std::endl; 
+
     return 1;
 }
